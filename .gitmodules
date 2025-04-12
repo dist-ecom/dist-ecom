@@ -7,3 +7,6 @@
 [submodule "services/user-service"]
 	path = services/user-service
 	url = https://github.com/adhamafis/user-service.git
+[submodule "frontend"]
+	path = frontend
+	url = https://github.com/adhamafis/dist-ecom-frontend
