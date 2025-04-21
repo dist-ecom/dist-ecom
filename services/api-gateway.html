@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distributed E-Commerce API Documentation</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <style>
+        body {
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .service-card {
+            margin-bottom: 20px;
+            transition: transform 0.2s;
+        }
+        .service-card:hover {
+            transform: translateY(-5px);
+        }
+        .btn-swagger {
+            background-color: #85ea2d;
+            color: #000;
+        }
+        .btn-swagger:hover {
+            background-color: #79d826;
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center mb-5">Distributed E-Commerce API Documentation</h1>
+        
+        <div class="row">
+            <!-- User Service -->
+            <div class="col-md-4">
+                <div class="card service-card">
+                    <div class="card-body">
+                        <h5 class="card-title">User Service</h5>
+                        <p class="card-text">Authentication, user management, and profile operations.</p>
+                        <div class="d-grid gap-2">
+                            <a href="/docs/user-service" class="btn btn-swagger">Swagger UI</a>
+                            <a href="/api-json/user-service" class="btn btn-secondary">OpenAPI JSON</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Product Service -->
+            <div class="col-md-4">
+                <div class="card service-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Product Service</h5>
+                        <p class="card-text">Product management, search, and catalog operations.</p>
+                        <div class="d-grid gap-2">
+                            <a href="/docs/product-service" class="btn btn-swagger">Swagger UI</a>
+                            <a href="/api-json/product-service" class="btn btn-secondary">OpenAPI JSON</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Order Service -->
+            <div class="col-md-4">
+                <div class="card service-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Order Service</h5>
+                        <p class="card-text">Order management, cart operations, and checkout.</p>
+                        <div class="d-grid gap-2">
+                            <a href="/docs/order-service" class="btn btn-swagger">Swagger UI</a>
+                            <a href="/api-json/order-service" class="btn btn-secondary">OpenAPI JSON</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-5">
+            <h2>API Gateway Routes</h2>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Service</th>
+                        <th>Base Path</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>User Service</td>
+                        <td><code>/api/users</code><br><code>/api/auth</code></td>
+                        <td>User management and authentication endpoints</td>
+                    </tr>
+                    <tr>
+                        <td>Product Service</td>
+                        <td><code>/api/products</code></td>
+                        <td>Product catalog and search endpoints</td>
+                    </tr>
+                    <tr>
+                        <td>Order Service</td>
+                        <td><code>/api/orders</code></td>
+                        <td>Order management endpoints</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html> 

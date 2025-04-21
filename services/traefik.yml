@@ -1,0 +1,18 @@
+api:
+  dashboard: true
+  insecure: true  # Don't use in production
+
+entryPoints:
+  web:
+    address: ":80"
+    
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: ecom-network
+
+log:
+  level: INFO
+
+accessLog: {} 

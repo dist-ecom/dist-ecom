@@ -1,0 +1,255 @@
+version: '3.8'
+
+services:
+  traefik:
+    image: traefik:v2.10
+    container_name: traefik
+    command:
+      # API and Dashboard configuration
+      - "--api.dashboard=true"
+      - "--api.insecure=true"  # Enable insecure API temporarily for testing
+      
+      # Docker provider configuration
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      
+      # Entrypoints configuration
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      
+      # Enable access logs
+      - "--accesslog=true"
+      - "--accesslog.filepath=/var/log/traefik/access.log"
+      
+    ports:
+      - "80:80"      # HTTP
+      - "443:443"    # HTTPS
+      - "8080:8080"  # Dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - traefik-logs:/var/log/traefik
+    networks:
+      - ecom-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.api.service=api@internal"
+      - "traefik.http.routers.api.entrypoints=web"
+
+  # User Service Database
+  user-db:
+    image: postgres:15
+    container_name: user-service-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: user_service
+    volumes:
+      - user_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ecom-network
+
+  # Product Service Databases
+  mongodb:
+    image: mongo:latest
+    container_name: product-service-mongodb
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password123
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - ecom-network
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.1
+    container_name: product-service-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - ecom-network
+
+  redis:
+    image: redis:latest
+    container_name: product-service-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - ecom-network
+
+  # Order Service Database
+  order-db:
+    image: postgres:15
+    container_name: order-service-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: order_service
+    volumes:
+      - order_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ecom-network
+
+  # Application Services
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    container_name: user-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - DATABASE_URL=postgresql://postgres:postgres@user-db:5432/user_service
+      - JWT_SECRET=${JWT_SECRET:-default_jwt_secret}
+      - JWT_EXPIRATION_TIME=${JWT_EXPIRATION_TIME:-1d}
+      - SWAGGER_ENABLED=true
+      - SERVICE_NAME=user-service
+      - SERVICE_DESCRIPTION=User Management and Authentication Service
+    depends_on:
+      user-db:
+        condition: service_healthy
+    networks:
+      - ecom-network
+    labels:
+      - "traefik.enable=true"
+      # API Routes
+      - "traefik.http.routers.user-service.rule=PathPrefix(`/api/users`) || PathPrefix(`/api/auth`)"
+      - "traefik.http.routers.user-service.entrypoints=web"
+      - "traefik.http.services.user-service.loadbalancer.server.port=3000"
+      - "traefik.http.middlewares.user-service-strip.stripprefix.prefixes=/api"
+      - "traefik.http.routers.user-service.middlewares=user-service-strip"
+      # Swagger UI Route
+      - "traefik.http.routers.user-service-swagger.rule=PathPrefix(`/docs/user-service`)"
+      - "traefik.http.routers.user-service-swagger.entrypoints=web"
+      - "traefik.http.routers.user-service-swagger.middlewares=user-service-swagger-strip"
+      - "traefik.http.middlewares.user-service-swagger-strip.stripprefix.prefixes=/docs/user-service"
+      # Swagger JSON Route
+      - "traefik.http.routers.user-service-swagger-json.rule=PathPrefix(`/api-json/user-service`)"
+      - "traefik.http.routers.user-service-swagger-json.entrypoints=web"
+      - "traefik.http.routers.user-service-swagger-json.middlewares=user-service-swagger-json-strip"
+      - "traefik.http.middlewares.user-service-swagger-json-strip.stripprefix.prefixes=/api-json/user-service"
+
+  product-service:
+    build:
+      context: ./product-service
+      dockerfile: Dockerfile
+    container_name: product-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - MONGODB_URI=mongodb://admin:password123@mongodb:27017/product_service?authSource=admin
+      - ELASTICSEARCH_NODE=http://elasticsearch:9200
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SWAGGER_ENABLED=true
+      - SERVICE_NAME=product-service
+      - SERVICE_DESCRIPTION=Product Management and Search Service
+    depends_on:
+      - mongodb
+      - elasticsearch
+      - redis
+    networks:
+      - ecom-network
+    labels:
+      - "traefik.enable=true"
+      # API Routes
+      - "traefik.http.routers.product-service.rule=PathPrefix(`/api/products`)"
+      - "traefik.http.routers.product-service.entrypoints=web"
+      - "traefik.http.services.product-service.loadbalancer.server.port=3001"
+      - "traefik.http.middlewares.product-service-strip.stripprefix.prefixes=/api"
+      - "traefik.http.routers.product-service.middlewares=product-service-strip"
+      # Swagger UI Route
+      - "traefik.http.routers.product-service-swagger.rule=PathPrefix(`/docs/product-service`)"
+      - "traefik.http.routers.product-service-swagger.entrypoints=web"
+      - "traefik.http.routers.product-service-swagger.middlewares=product-service-swagger-strip"
+      - "traefik.http.middlewares.product-service-swagger-strip.stripprefix.prefixes=/docs/product-service"
+      # Swagger JSON Route
+      - "traefik.http.routers.product-service-swagger-json.rule=PathPrefix(`/api-json/product-service`)"
+      - "traefik.http.routers.product-service-swagger-json.entrypoints=web"
+      - "traefik.http.routers.product-service-swagger-json.middlewares=product-service-swagger-json-strip"
+      - "traefik.http.middlewares.product-service-swagger-json-strip.stripprefix.prefixes=/api-json/product-service"
+
+  order-service:
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
+    container_name: order-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+      - DATABASE_URL=postgresql://postgres:postgres@order-db:5432/order_service
+      - USER_SERVICE_URL=http://user-service:3000
+      - PRODUCT_SERVICE_URL=http://product-service:3001
+      - SWAGGER_ENABLED=true
+      - SERVICE_NAME=order-service
+      - SERVICE_DESCRIPTION=Order Management Service
+    depends_on:
+      order-db:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      product-service:
+        condition: service_started
+    networks:
+      - ecom-network
+    labels:
+      - "traefik.enable=true"
+      # API Routes
+      - "traefik.http.routers.order-service.rule=PathPrefix(`/api/orders`)"
+      - "traefik.http.routers.order-service.entrypoints=web"
+      - "traefik.http.services.order-service.loadbalancer.server.port=3002"
+      - "traefik.http.middlewares.order-service-strip.stripprefix.prefixes=/api"
+      - "traefik.http.routers.order-service.middlewares=order-service-strip"
+      # Swagger UI Route
+      - "traefik.http.routers.order-service-swagger.rule=PathPrefix(`/docs/order-service`)"
+      - "traefik.http.routers.order-service-swagger.entrypoints=web"
+      - "traefik.http.routers.order-service-swagger.middlewares=order-service-swagger-strip"
+      - "traefik.http.middlewares.order-service-swagger-strip.stripprefix.prefixes=/docs/order-service"
+      # Swagger JSON Route
+      - "traefik.http.routers.order-service-swagger-json.rule=PathPrefix(`/api-json/order-service`)"
+      - "traefik.http.routers.order-service-swagger-json.entrypoints=web"
+      - "traefik.http.routers.order-service-swagger-json.middlewares=order-service-swagger-json-strip"
+      - "traefik.http.middlewares.order-service-swagger-json-strip.stripprefix.prefixes=/api-json/order-service"
+
+  # API Gateway Documentation
+  api-docs:
+    build:
+      context: .
+      dockerfile: Dockerfile.docs
+    container_name: api-docs
+    networks:
+      - ecom-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api-docs.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.api-docs.entrypoints=web"
+      - "traefik.http.services.api-docs.loadbalancer.server.port=80"
+      - "traefik.http.routers.api-docs.priority=1"  # Lower priority than other routes
+
+networks:
+  ecom-network:
+    driver: bridge
+
+volumes:
+  user_postgres_data:
+  order_postgres_data:
+  mongodb_data:
+  elasticsearch_data:
+  redis_data:
+  traefik-certificates:  # New volume for SSL certificates
+  traefik-logs:         # New volume for Traefik logs 
