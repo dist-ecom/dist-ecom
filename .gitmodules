@@ -1,12 +1,9 @@
-[submodule "services/order-service"]
-	path = services/order-service
-	url = https://github.com/dist-ecom/order-service.git
 [submodule "services/product-service"]
 	path = services/product-service
-	url = https://github.com/dist-ecom/product-service.git
+	url = https://github.com/dist-ecom/product-service
 [submodule "services/user-service"]
 	path = services/user-service
-	url = https://github.com/dist-ecom/user-service.git
-[submodule "frontend"]
-	path = frontend
-	url = https://github.com/dist-ecom/dist-ecom-frontend
+	url = https://github.com/dist-ecom/user-service
+[submodule "services/order-service"]
+	path = services/order-service
+	url = https://github.com/dist-ecom/order-service
